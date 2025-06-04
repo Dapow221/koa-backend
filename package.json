@@ -1,0 +1,39 @@
+{
+  "name": "koa-backend",
+  "scripts": {
+    "dev": "nodemon --exec bun run src/index.ts",
+    "start": "ts-node src/index.ts",
+    "migrate": "node-pg-migrate -m './src/migrations'"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/jsonwebtoken": "^9.0.9",
+    "node-pg-migrate": "^8.0.1",
+    "tsconfig-paths": "^4.2.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@koa/cors": "^5.0.0",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/koa": "^2.15.0",
+    "@types/koa-logger": "^3.1.5",
+    "@types/koa-router": "^7.4.8",
+    "@types/koa-static": "^4.0.4",
+    "@types/koa__cors": "^5.0.0",
+    "@types/node": "^22.15.29",
+    "@types/pg": "^8.15.4",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "koa": "^3.0.0",
+    "koa-body": "^6.0.1",
+    "koa-bodyparser": "^4.4.1",
+    "koa-logger": "^3.2.1",
+    "koa-router": "^13.0.1",
+    "koa-static": "^5.0.0",
+    "pg": "^8.16.0",
+    "ts-node": "^10.9.2"
+  }
+}
