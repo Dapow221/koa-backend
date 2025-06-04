@@ -32,4 +32,14 @@ export const createUser = async (user: UserInput): Promise<User> => {
     return result.rows[0]
 }
 
+export const getUserById = async (id: number): Promise<User> => {
+    const result = await query(`SELECT * FROM users WHERE id = $1`, [id])
+    return result.rows[0]
+}
+
+export const deleteUser = async (id: number): Promise<User> => {
+    const result = await query(`DELETE FROM users WHERE id = $1 RETURNING *`, [id])
+    return result.rows[0]
+}
+
 
