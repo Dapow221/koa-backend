@@ -16,6 +16,11 @@ export interface UserInput {
     password: string;
 }
 
+export interface LoginInput {
+    username: string;
+    password: string;
+}
+
 
 export const createUser = async (user: UserInput): Promise<User> => {
     const salt = 10
@@ -37,9 +42,15 @@ export const getUserById = async (id: number): Promise<User> => {
     return result.rows[0]
 }
 
+export const getUserByUsername = async (username: string): Promise<User> => {
+    const result = await query(`SELECT * FROM users WHERE username = $1`, [username])
+    return result.rows[0]
+}
+
 export const deleteUser = async (id: number): Promise<User> => {
     const result = await query(`DELETE FROM users WHERE id = $1 RETURNING *`, [id])
     return result.rows[0]
 }
+
 
 
