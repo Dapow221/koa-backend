@@ -1,8 +1,8 @@
 import { Context } from "koa";
 import * as promotionsModel from '../models/promotion'
 import * as apiResponse from '../utils/apiResponse'
-import * as fs from 'fs';
-import * as path from 'path';
+import { uploadToS3, deleteFromS3 } from '../helpers/s3'
+
 
 export const getAll = async (ctx: Context): Promise<void> => {
     try {
@@ -52,31 +52,19 @@ export const create = async (ctx: Context): Promise<void> => {
             return;
         }
         
-        let imagePath = '';
+        let imageUrl = '';
         
         if (ctx.request.files) {
-            const customDir = 'promotions/';
-            const storagePath = path.join(__dirname, '..', 'storage', customDir);
-            
-            if (!fs.existsSync(storagePath)) {
-                fs.mkdirSync(storagePath, { recursive: true });
-            }
-            
             const imageFile = ctx.request.files.image as any;
             if (imageFile) {
-                const fileExtension = path.extname(imageFile.originalFilename);
-                const fileName = `promotion_${Date.now()}${fileExtension}`;
-                const filePath = path.join(storagePath, fileName);
-                
-                const reader = fs.createReadStream(imageFile.filepath);
-                const writer = fs.createWriteStream(filePath);
-                reader.pipe(writer);
-                
-                reader.on('end', () => {
-                    fs.unlinkSync(imageFile.filepath);
-                });
-                
-                imagePath = `promotions/${fileName}`
+                try {
+                    imageUrl = await uploadToS3(imageFile);
+                } catch (uploadError) {
+                    console.error('S3 upload error:', uploadError);
+                    ctx.status = 500;
+                    ctx.body = apiResponse.error('Failed to upload image', 500);
+                    return;
+                }
             }
         }
         
@@ -85,7 +73,7 @@ export const create = async (ctx: Context): Promise<void> => {
             subtitle,
             description,
             validity,
-            image: imagePath
+            image: imageUrl
         };
         
         const newPromotion = await promotionsModel.create(promotionData);
@@ -93,7 +81,7 @@ export const create = async (ctx: Context): Promise<void> => {
         ctx.status = 201;
         ctx.body = apiResponse.success('Promotion created successfully', newPromotion);
     } catch (error) {
-        console.log(error)
+        console.log(error);
         ctx.status = 500;
         ctx.body = apiResponse.error('Failed to create promotion', 500);
     }
@@ -125,35 +113,22 @@ export const update = async (ctx: Context): Promise<void> => {
         if (validity !== undefined) updateData.validity = validity;
         
         if (ctx.request.files) {
-            const customDir = 'promotions/';
-            const storagePath = path.join(__dirname, '..', 'storage', customDir);
-            
-            if (!fs.existsSync(storagePath)) {
-                fs.mkdirSync(storagePath, { recursive: true });
-            }
-            
             const imageFile = ctx.request.files.image as any;
             if (imageFile) {
-                if (existingPromotion.image) {
-                    const oldImagePath = path.join(__dirname, '..', 'storage', existingPromotion.image);
-                    if (fs.existsSync(oldImagePath)) {
-                        fs.unlinkSync(oldImagePath);
+                try {
+                    const newImageUrl = await uploadToS3(imageFile);
+                    
+                    if (existingPromotion.image) {
+                        await deleteFromS3(existingPromotion.image);
                     }
+                    
+                    updateData.image = newImageUrl;
+                } catch (uploadError) {
+                    console.error('S3 upload error:', uploadError);
+                    ctx.status = 500;
+                    ctx.body = apiResponse.error('Failed to upload image', 500);
+                    return;
                 }
-                
-                const fileExtension = path.extname(imageFile.originalFilename);
-                const fileName = `promotion_${Date.now()}${fileExtension}`;
-                const filePath = path.join(storagePath, fileName);
-                
-                const reader = fs.createReadStream(imageFile.filepath);
-                const writer = fs.createWriteStream(filePath);
-                reader.pipe(writer);
-                
-                reader.on('end', () => {
-                    fs.unlinkSync(imageFile.filepath);
-                });
-                
-                updateData.image = `${customDir}${fileName}`;
             }
         }
         
@@ -162,6 +137,7 @@ export const update = async (ctx: Context): Promise<void> => {
         ctx.status = 200;
         ctx.body = apiResponse.success('Promotion updated successfully', updatedPromotion);
     } catch (error) {
+        console.error('Update error:', error);
         ctx.status = 500;
         ctx.body = apiResponse.error('Failed to update promotion', 500);
     }
@@ -184,11 +160,9 @@ export const deletePromotion = async (ctx: Context): Promise<void> => {
             return;
         }
         
+        // Delete image from S3 if it exists
         if (promotion.image) {
-            const imagePath = path.join(__dirname, '..', 'storage', promotion.image);
-            if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath);
-            }
+            await deleteFromS3(promotion.image);
         }
         
         const deleted = await promotionsModel.deletePromotion(parseInt(id));
@@ -201,6 +175,7 @@ export const deletePromotion = async (ctx: Context): Promise<void> => {
             ctx.body = apiResponse.error('Failed to delete promotion', 500);
         }
     } catch (error) {
+        console.error('Delete error:', error);
         ctx.status = 500;
         ctx.body = apiResponse.error('Failed to delete promotion', 500);
     }

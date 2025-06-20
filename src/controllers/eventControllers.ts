@@ -1,8 +1,8 @@
 import { Context } from "koa";
 import * as eventsModel from '../models/eventSection'
 import * as apiResponse from '../utils/apiResponse'
-import * as fs from 'fs';
-import * as path from 'path';
+import { uploadToS3, deleteFromS3 } from '../helpers/s3'
+
 
 export const getAll = async (ctx: Context): Promise<void> => {
     try {
@@ -52,38 +52,26 @@ export const create = async (ctx: Context): Promise<void> => {
             return;
         }
         
-        let imagePath = '';
+        let imageUrl = '';
         
         if (ctx.request.files) {
-            const customDir = 'events/';
-            const storagePath = path.join(__dirname, '..', 'storage', customDir);
-            
-            if (!fs.existsSync(storagePath)) {
-                fs.mkdirSync(storagePath, { recursive: true });
-            }
-            
             const imageFile = ctx.request.files.image as any;
             if (imageFile) {
-                const fileExtension = path.extname(imageFile.originalFilename);
-                const fileName = `event_${Date.now()}${fileExtension}`;
-                const filePath = path.join(storagePath, fileName);
-                
-                const reader = fs.createReadStream(imageFile.filepath);
-                const writer = fs.createWriteStream(filePath);
-                reader.pipe(writer);
-                
-                reader.on('end', () => {
-                    fs.unlinkSync(imageFile.filepath);
-                });
-                
-                imagePath = `events/${fileName}`
+                try {
+                    imageUrl = await uploadToS3(imageFile);
+                } catch (uploadError) {
+                    console.error('S3 upload error:', uploadError);
+                    ctx.status = 500;
+                    ctx.body = apiResponse.error('Failed to upload image', 500);
+                    return;
+                }
             }
         }
         
         const eventData = {
             title,
             description,
-            image: imagePath
+            image: imageUrl
         };
         
         const newEvent = await eventsModel.create(eventData);
@@ -121,35 +109,22 @@ export const update = async (ctx: Context): Promise<void> => {
         if (description !== undefined) updateData.description = description;
         
         if (ctx.request.files) {
-            const customDir = 'events/';
-            const storagePath = path.join(__dirname, '..', 'storage', customDir);
-            
-            if (!fs.existsSync(storagePath)) {
-                fs.mkdirSync(storagePath, { recursive: true });
-            }
-            
             const imageFile = ctx.request.files.image as any;
             if (imageFile) {
-                if (existingEvent.image) {
-                    const oldImagePath = path.join(__dirname, '..', 'storage', existingEvent.image);
-                    if (fs.existsSync(oldImagePath)) {
-                        fs.unlinkSync(oldImagePath);
+                try {
+                    const newImageUrl = await uploadToS3(imageFile);
+                    
+                    if (existingEvent.image) {
+                        await deleteFromS3(existingEvent.image);
                     }
+                    
+                    updateData.image = newImageUrl;
+                } catch (uploadError) {
+                    console.error('S3 upload error:', uploadError);
+                    ctx.status = 500;
+                    ctx.body = apiResponse.error('Failed to upload image', 500);
+                    return;
                 }
-                
-                const fileExtension = path.extname(imageFile.originalFilename);
-                const fileName = `event_${Date.now()}${fileExtension}`;
-                const filePath = path.join(storagePath, fileName);
-                
-                const reader = fs.createReadStream(imageFile.filepath);
-                const writer = fs.createWriteStream(filePath);
-                reader.pipe(writer);
-                
-                reader.on('end', () => {
-                    fs.unlinkSync(imageFile.filepath);
-                });
-                
-                updateData.image = `events/${fileName}`;
             }
         }
         
@@ -181,10 +156,7 @@ export const deleteEvents = async (ctx: Context): Promise<void> => {
         }
         
         if (event.image) {
-            const imagePath = path.join(__dirname, '..', 'storage', event.image);
-            if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath);
-            }
+            await deleteFromS3(event.image);
         }
         
         const deleted = await eventsModel.deleteEvent(parseInt(id));

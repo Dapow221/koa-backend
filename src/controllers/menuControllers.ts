@@ -1,8 +1,8 @@
 import { Context } from "koa";
 import * as menusModel from '../models/menu'
 import * as apiResponse from '../utils/apiResponse'
-import * as fs from 'fs';
-import * as path from 'path';
+import { uploadToS3, deleteFromS3 } from '../helpers/s3'
+
 
 export const getAll = async (ctx: Context): Promise<void> => {
     try {
@@ -52,42 +52,25 @@ export const create = async (ctx: Context): Promise<void> => {
             return;
         }
         
-        let imagePath = '';
+        let imageUrl = '';
         
         if (ctx.request.files) {
-            const customDir = 'menus/';
-            const storagePath = path.join(__dirname, '..', 'storage', customDir);
-            
-            if (!fs.existsSync(storagePath)) {
-                fs.mkdirSync(storagePath, { recursive: true });
-            }
-            
             const imageFile = ctx.request.files.image as any;
             if (imageFile) {
-                const fileExtension = path.extname(imageFile.originalFilename);
-                const fileName = `menu_${Date.now()}${fileExtension}`;
-                const filePath = path.join(storagePath, fileName);
-                
-                const reader = fs.createReadStream(imageFile.filepath);
-                const writer = fs.createWriteStream(filePath);
-                reader.pipe(writer);
-                
-                reader.on('end', () => {
-                    fs.unlinkSync(imageFile.filepath);
-                });
-                
-                imagePath = `menus/${fileName}`
+                try {
+                    imageUrl = await uploadToS3(imageFile);
+                } catch (uploadError) {
+                    console.error('S3 upload error:', uploadError);
+                    ctx.status = 500;
+                    ctx.body = apiResponse.error('Failed to upload image', 500);
+                    return;
+                }
             }
         }
         
-        if (!imagePath) {
-            ctx.status = 400;
-            ctx.body = apiResponse.error('Image is required', 400);
-            return;
-        }
         
         const menuData = {
-            image: imagePath,
+            image: imageUrl,
             category
         };
         
@@ -125,35 +108,22 @@ export const update = async (ctx: Context): Promise<void> => {
         if (category !== undefined) updateData.category = category;
         
         if (ctx.request.files) {
-            const customDir = 'menus/';
-            const storagePath = path.join(__dirname, '..', 'storage', customDir);
-            
-            if (!fs.existsSync(storagePath)) {
-                fs.mkdirSync(storagePath, { recursive: true });
-            }
-            
             const imageFile = ctx.request.files.image as any;
             if (imageFile) {
-                if (existingMenu.image) {
-                    const oldImagePath = path.join(__dirname, '..', 'storage', existingMenu.image);
-                    if (fs.existsSync(oldImagePath)) {
-                        fs.unlinkSync(oldImagePath);
+                try {
+                    const newImageUrl = await uploadToS3(imageFile);
+                    
+                    if (existingMenu.image) {
+                        await deleteFromS3(existingMenu.image);
                     }
+                    
+                    updateData.image = newImageUrl;
+                } catch (uploadError) {
+                    console.error('S3 upload error:', uploadError);
+                    ctx.status = 500;
+                    ctx.body = apiResponse.error('Failed to upload image', 500);
+                    return;
                 }
-                
-                const fileExtension = path.extname(imageFile.originalFilename);
-                const fileName = `menu_${Date.now()}${fileExtension}`;
-                const filePath = path.join(storagePath, fileName);
-                
-                const reader = fs.createReadStream(imageFile.filepath);
-                const writer = fs.createWriteStream(filePath);
-                reader.pipe(writer);
-                
-                reader.on('end', () => {
-                    fs.unlinkSync(imageFile.filepath);
-                });
-                
-                updateData.image = `${customDir}${fileName}`;
             }
         }
         
@@ -185,10 +155,7 @@ export const deleteMenu = async (ctx: Context): Promise<void> => {
         }
         
         if (menu.image) {
-            const imagePath = path.join(__dirname, '..', 'storage', menu.image);
-            if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath);
-            }
+            await deleteFromS3(menu.image);
         }
         
         const deleted = await menusModel.deleteMenu(parseInt(id));

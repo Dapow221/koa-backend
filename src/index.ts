@@ -7,9 +7,6 @@ import logger from "koa-logger";
 import router from "./routes";
 // import errorHandler from "./middleware/errorHandler";
 import cors from "@koa/cors";
-import serve from "koa-static";
-import path from "path";
-
 const app = new Koa();
 
 app.use(
@@ -19,9 +16,6 @@ app.use(
     allowHeaders: ["Authorization", "Content-Type"],
   })
 );
-
-const storagePath = path.join(__dirname, "./storage/");
-app.use(serve(storagePath));
 
 app.use(logger());
 app.use(bodyParser({ multipart: true }));
