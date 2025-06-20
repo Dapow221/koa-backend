@@ -21,6 +21,7 @@ export const createAbout = async (ctx: Context): Promise<void> => {
         ctx.status = 201
         ctx.body = apiResponse.success('Create About Success', about)
     } catch (error) {
+        console.log(error)
         ctx.status = 500
         ctx.body = apiResponse.error('Internal server error', 500)
     }

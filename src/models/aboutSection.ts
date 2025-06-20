@@ -23,7 +23,7 @@ export const create = async (about: AboutCreateInput): Promise<About> => {
     const { title, subtitle, description } = about
 
     const result = await query(
-        'INSERT INTO hero (title, subtitle, description) VALUES ($1, $2, $3) RETURNING *',
+        'INSERT INTO about (title, subtitle, description) VALUES ($1, $2, $3) RETURNING *',
         [title, subtitle, description]
     );
 
