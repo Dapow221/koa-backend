@@ -14,7 +14,7 @@ const app = new Koa();
 
 app.use(
   cors({
-    origin: "*",
+    origin: "*", // Allows all origins
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Authorization", "Content-Type"],
   })
