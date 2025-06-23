@@ -78,11 +78,11 @@ export const update = async (id: number, data: Partial<updateMenu>): Promise<Men
     let paramCount = 1;
 
     if (data.image !== undefined) {
-        fields.push(`image = ${paramCount++}`);
+        fields.push(`image = $${paramCount++}`);
         values.push(data.image);
     }
     if (data.category !== undefined) {
-        fields.push(`category = ${paramCount++}`);
+        fields.push(`category = $${paramCount++}`);
         values.push(data.category);
     }
 
@@ -94,7 +94,7 @@ export const update = async (id: number, data: Partial<updateMenu>): Promise<Men
     values.push(id);
 
     const result = await query(
-        `UPDATE menus SET ${fields.join(', ')} WHERE id = ${paramCount} RETURNING *`,
+        `UPDATE menus SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
         values
     );
 

@@ -132,6 +132,7 @@ export const update = async (ctx: Context): Promise<void> => {
         ctx.status = 200;
         ctx.body = apiResponse.success('Menu updated successfully', updatedMenu);
     } catch (error) {
+        console.log(error)
         ctx.status = 500;
         ctx.body = apiResponse.error('Failed to update menu', 500);
     }
