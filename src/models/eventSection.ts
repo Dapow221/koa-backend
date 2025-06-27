@@ -25,7 +25,7 @@ export const create = async (data: createEvent): Promise<Event> => {
     const { title, description, image } = data
 
     const result = await query(
-        'INSERT INTO events (title, subtitle, description, validity, image) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        'INSERT INTO events (title, description, image) VALUES ($1, $2, $3) RETURNING *',
         [title, description, image]
     );
 
