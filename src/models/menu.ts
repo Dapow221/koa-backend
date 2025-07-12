@@ -72,6 +72,21 @@ export const getById = async (id: number): Promise<Menu | null> => {
     };
 }
 
+export const getByCategory = async (category: string): Promise<Menu[]> => {
+    const result = await query(
+        'SELECT * FROM menus WHERE category = $1 ORDER BY id DESC',
+        [category]
+    );
+
+    return result.rows.map((menu: any) => ({
+        id: menu.id,
+        image: menu.image,
+        category: menu.category,
+        created_at: menu.created_at,
+        updated_at: menu.updated_at
+    }));
+}
+
 export const update = async (id: number, data: Partial<updateMenu>): Promise<Menu | null> => {
     const fields: string[] = [];
     const values: any[] = [];

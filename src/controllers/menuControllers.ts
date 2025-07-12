@@ -173,3 +173,23 @@ export const deleteMenu = async (ctx: Context): Promise<void> => {
         ctx.body = apiResponse.error('Failed to delete menu', 500);
     }
 }
+
+export const getByCategory = async (ctx: Context): Promise<void> => {
+    try {
+        const { category } = ctx.params;
+        
+        if (!category) {
+            ctx.status = 400;
+            ctx.body = apiResponse.error('Category parameter is required', 400);
+            return;
+        }
+        
+        const menus = await menusModel.getByCategory(category);
+        
+        ctx.status = 200;
+        ctx.body = apiResponse.success('Menus retrieved successfully', menus);
+    } catch (error) {
+        ctx.status = 500;
+        ctx.body = apiResponse.error('Failed to retrieve menus', 500);
+    }
+}

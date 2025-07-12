@@ -5,6 +5,7 @@ const router = new Router();
 
 router.get('/menu', menuController.getAll);
 router.get('/menu/:id', menuController.getById);
+router.get('/menu/category/:category', menuController.getByCategory);
 router.post('/menu', menuController.create);
 router.put('/menu/:id', menuController.update);
 router.delete('/menu/:id', menuController.deleteMenu);
